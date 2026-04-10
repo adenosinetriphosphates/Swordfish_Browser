@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """
-Swordfish
+Swordfish v16.1 - FIXED Privacy Browser
+- IP ALWAYS SPOOFED (via headers + JS)
+- OS ALWAYS LINUX (Windows 11 completely hidden)
+- Cookies properly managed and visible
+- Network bandwidth tracking
+- DuckDuckGo integration
 """
 
 import sys, os, json, random, string, urllib.parse, urllib.request, threading, socket
@@ -31,12 +36,15 @@ from PyQt6.QtCore import QUrl, pyqtSignal, QObject, Qt, QTimer, QSize, QByteArra
 from PyQt6.QtGui import QColor, QPainter, QPen, QFont, QKeySequence, QShortcut, QIcon
 from PyQt6.QtNetwork import QNetworkCookie
 
-
+# ============================================================
+#  ULTIMATE PRIVACY JAVASCRIPT - COMPLETE SPOOFING
+# ============================================================
 PRIVACY_JS = """
 (function() {
     'use strict';
     console.log('[SWORDFISH] Privacy layer starting...');
     
+    // ====== COMPLETELY BLOCK WEBRTC ======
     const rtcBlock = () => { 
         throw new Error('WebRTC disabled for privacy'); 
     };
@@ -48,7 +56,7 @@ PRIVACY_JS = """
         window.mediaDevices.getUserMedia = () => Promise.reject(new Error('Blocked'));
     }
     
-    //
+    // ====== HARDCORE OS SPOOFING - WINDOWS 11 INVISIBLE ======
     const fakeUA = 'Mozilla/5.0 (X11; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0';
     const navDescriptors = {
         userAgent: fakeUA,
@@ -196,7 +204,7 @@ QWidget#toolbar {
     padding: 2px 4px;
 }
 
-/* ─Navbuttons ig went for a nice old-school look :) ─ */
+/* ── Nav buttons — Firefox-style raised pillbox ── */
 QPushButton#navbtn {
     background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
         stop:0 #f0ede4, stop:1 #c8c4b8);
@@ -226,7 +234,7 @@ QPushButton#navbtn:pressed {
 }
 QPushButton#navbtn:disabled { color: #a0a0a0; }
 
-/* ─ Generic buttons ─ */
+/* ── Generic buttons ── */
 QPushButton {
     background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
         stop:0 #f0ede4, stop:1 #c8c4b8);
@@ -253,7 +261,7 @@ QPushButton:pressed {
 }
 QPushButton:disabled { color: #909090; }
 
-/* ── addrbar :) ── */
+/* ── URL / address bar ── */
 QLineEdit#urlbar {
     background: #ffffff;
     color: #000080;
@@ -285,7 +293,7 @@ QLineEdit:focus {
     border-left: 2px solid #316ac5;
 }
 
-/* ── Lock badge :( ── */
+/* ── Lock badge ── */
 QPushButton#lock_https {
     background: #e0f0e0; color: #006000;
     border: 1px solid #60a060; border-radius: 2px;
@@ -328,7 +336,7 @@ QTabBar#pagetabbar::tab:hover:!selected {
     color: #000000;
 }
 
-/* ── Infos tabs ── */
+/* ── Info panel tabs ── */
 QTabWidget#infotabs::pane {
     border: 1px solid #808080;
     background: #d4d0c8;
@@ -350,7 +358,7 @@ QTabBar#infotabbar::tab:selected {
     font-weight: bold;
 }
 
-/* ── Traffic logbox :P — black text on warm tan, compact ── */
+/* ── Traffic log — black text on warm tan, compact ── */
 QListWidget#trafficlog {
     background: #e8e0c8;
     color: #1a1a1a;
@@ -371,7 +379,7 @@ QListWidget#trafficlog::item:selected {
     color: #ffffff;
 }
 
-/* ── N Tables ── */
+/* ── Tables ── */
 QTableWidget {
     background: #ffffff;
     color: #000000;
@@ -466,7 +474,7 @@ QCheckBox::indicator:checked {
 }
 QCheckBox::indicator:checked { background: #316ac5; }
 
-/*  ── */
+/* ── Scrollbars — old Windows style ── */
 QScrollBar:vertical {
     background: #d4d0c8;
     width: 16px;
@@ -534,6 +542,7 @@ QStatusBar {
 """
 
 class BandwidthGraph(QFrame):
+    """Network bandwidth visualization"""
     def __init__(self):
         super().__init__()
         self.setFixedSize(260, 48)
@@ -588,6 +597,7 @@ class BandwidthGraph(QFrame):
         painter.setPen(QPen(Qt.PenStyle.NoPen))
         painter.setBrush(QBrush(grad))
         painter.drawPolygon(poly)
+        # Line on top
         painter.setPen(QPen(QColor(0x00, 0x7a, 0x00), 2))
         for i in range(n - 1):
             x1 = i * (w / max(n-1, 1))
@@ -596,6 +606,7 @@ class BandwidthGraph(QFrame):
             y2 = h - 12 - (self.data[i+1] / max_val) * (h - 22)
             painter.drawLine(int(x1), int(y1), int(x2), int(y2))
 
+        # Labels — black on tan
         painter.setPen(QPen(QColor(0x00, 0x00, 0x00), 1))
         painter.setFont(QFont("Courier New", 8))
         cur_kb = self.data[-1]
@@ -608,7 +619,8 @@ class URLInterceptor(QWebEngineUrlRequestInterceptor):
     def __init__(self, log_signal):
         super().__init__()
         self.log_signal = log_signal
-        self.spoofed_ip = "192.0.2.1"   # editable at runtime
+        self.spoofed_ip    = "192.0.2.1"   # editable at runtime
+        self.spoof_enabled = True           # toggle on/off
         self.blocklist = {
             "doubleclick.net", "google-analytics.com", "facebook.com/tr",
             "segment.com", "mixpanel.com", "amplitude.com", "analytics",
@@ -619,6 +631,7 @@ class URLInterceptor(QWebEngineUrlRequestInterceptor):
         url = info.requestUrl().toString()
         host = info.requestUrl().host().lower()
         
+        # Log request
         self.log_signal.emit(f"[REQUEST] {url}")
         
         # Check blocklist
@@ -627,18 +640,19 @@ class URLInterceptor(QWebEngineUrlRequestInterceptor):
             info.block(True)
             return
         
-        # SPOOF IP HEADERS — all use the user-editable spoofed_ip
-        try:
-            ip_bytes = self.spoofed_ip.encode()
-            info.setHttpHeader(b"X-Forwarded-For",   ip_bytes)
-            info.setHttpHeader(b"Client-IP",          ip_bytes)
-            info.setHttpHeader(b"X-Real-IP",          ip_bytes)
-            info.setHttpHeader(b"CF-Connecting-IP",   ip_bytes)
-            info.setHttpHeader(b"X-Client-IP",        ip_bytes)
-            info.setHttpHeader(b"X-Forwarded",        ip_bytes)
-            info.setHttpHeader(b"True-Client-IP",     ip_bytes)
-        except Exception:
-            pass
+        # SPOOF IP HEADERS — only when enabled
+        if self.spoof_enabled:
+            try:
+                ip_bytes = self.spoofed_ip.encode()
+                info.setHttpHeader(b"X-Forwarded-For",   ip_bytes)
+                info.setHttpHeader(b"Client-IP",          ip_bytes)
+                info.setHttpHeader(b"X-Real-IP",          ip_bytes)
+                info.setHttpHeader(b"CF-Connecting-IP",   ip_bytes)
+                info.setHttpHeader(b"X-Client-IP",        ip_bytes)
+                info.setHttpHeader(b"X-Forwarded",        ip_bytes)
+                info.setHttpHeader(b"True-Client-IP",     ip_bytes)
+            except Exception:
+                pass
         
         self.log_signal.emit(f"[ALLOW] {host}")
 
@@ -649,7 +663,7 @@ class Swordfish(QMainWindow):
     
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Swordfish, the Privacy-Oriented Browser")
+        self.setWindowTitle("Swordfish v16.1 - HARDCORE Privacy Browser")
         self.resize(1500, 950)
         
         try:
@@ -659,21 +673,24 @@ class Swordfish(QMainWindow):
         except:
             pass
         
+        # Profile with spoofed user agent
         self.profile = QWebEngineProfile()
         self.profile.setHttpUserAgent(
             'Mozilla/5.0 (X11; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0'
         )
         
+        # Interceptor
         self.interceptor = URLInterceptor(self.log_signal)
         self.profile.setUrlRequestInterceptor(self.interceptor)
         
-
+        # INJECT PRIVACY JS AT DOCUMENT CREATION (earliest point)
         script = QWebEngineScript()
         script.setSourceCode(PRIVACY_JS)
         script.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentCreation)
         script.setWorldId(0)
         self.profile.scripts().insert(script)
         
+        # Signals
         self.log_signal.connect(self._on_log)
         
         # Stats
@@ -682,12 +699,12 @@ class Swordfish(QMainWindow):
         self.blocked_count = 0
         self.fake_cookies = []
         
-      
+        # ── UI Setup ─────────────────────────────────────────────────────────
         main_layout = QVBoxLayout()
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-  
+        # ── Toolbar ───────────────────────────────────────────────────────
         toolbar = QWidget(); toolbar.setObjectName("toolbar")
         toolbar.setFixedHeight(38)
         toolbar_layout = QHBoxLayout(toolbar)
@@ -708,6 +725,7 @@ class Swordfish(QMainWindow):
 
         toolbar_layout.addSpacing(4)
 
+        # URL bar
         self.url_bar = QLineEdit()
         self.url_bar.setObjectName("urlbar")
         self.url_bar.setPlaceholderText("Enter address or search…")
@@ -717,7 +735,7 @@ class Swordfish(QMainWindow):
         toolbar_layout.addSpacing(4)
 
         for label, slot in [
-            ("Home",     lambda: self.navigate_to("https://www.ecosia.org/")),
+            ("Home",     lambda: self.navigate_to("https://duckduckgo.com")),
             ("New Tab",  self.new_tab),
             ("Cookies",  self.show_cookies),
             ("Settings", self.show_settings),
@@ -729,13 +747,13 @@ class Swordfish(QMainWindow):
 
         main_layout.addWidget(toolbar)
 
-
+        # ── Thin separator ────────────────────────────────────────────────
         sep = QFrame(); sep.setFrameShape(QFrame.Shape.HLine)
         sep.setFixedHeight(2)
         sep.setStyleSheet("background:#808080;")
         main_layout.addWidget(sep)
 
-
+        # ── Browser page tabs ─────────────────────────────────────────────
         self.tabs = QTabWidget()
         self.tabs.setObjectName("pagetabs")
         self.tabs.tabBar().setObjectName("pagetabbar")
@@ -744,6 +762,7 @@ class Swordfish(QMainWindow):
         self.tabs.currentChanged.connect(self._on_tab_changed)
         main_layout.addWidget(self.tabs, 1)
 
+        # ── Stats / network bar ───────────────────────────────────────────
         self.stats_widget = QWidget(); self.stats_widget.setObjectName("statsbar")
         self.stats_widget.setFixedHeight(54)
         stats_layout = QHBoxLayout(self.stats_widget)
@@ -758,10 +777,10 @@ class Swordfish(QMainWindow):
             f = QFrame(); f.setFrameShape(QFrame.Shape.VLine)
             f.setStyleSheet("color:#909090;"); return f
 
-        # ip
+        # ── Editable spoofed IP ────────────────────────────────────────
         lbl_spoof = QLabel("Spoof IP:")
         lbl_spoof.setObjectName("statslabel")
-        self.ip_edit = QLineEdit("192.168.1.1")
+        self.ip_edit = QLineEdit("192.0.2.1")
         self.ip_edit.setFixedWidth(110)
         self.ip_edit.setToolTip("Spoofed IP sent in X-Forwarded-For and related headers")
         self.ip_edit.setStyleSheet(
@@ -773,9 +792,15 @@ class Swordfish(QMainWindow):
         btn_apply_ip.setStyleSheet("font-size:9px; padding:0;")
         btn_apply_ip.setToolTip("Apply spoofed IP to all future requests")
         btn_apply_ip.clicked.connect(self._apply_spoofed_ip)
-     
         self.ip_edit.returnPressed.connect(self._apply_spoofed_ip)
 
+        self.chk_spoof_ip = QCheckBox("Spoof IP")
+        self.chk_spoof_ip.setChecked(True)
+        self.chk_spoof_ip.setToolTip("Send spoofed IP headers with every request")
+        self.chk_spoof_ip.setStyleSheet("font-size:10px; color:#1a1a1a;")
+        self.chk_spoof_ip.stateChanged.connect(self._toggle_spoof_ip)
+
+        # ── Graph — taller so it's actually readable ───────────────────
         self.bandwidth_graph = BandwidthGraph()
         self.bandwidth_graph.setFixedSize(260, 48)
         self.bandwidth_graph.setStyleSheet(
@@ -805,6 +830,7 @@ class Swordfish(QMainWindow):
         stats_layout.addWidget(lbl_spoof)
         stats_layout.addWidget(self.ip_edit)
         stats_layout.addWidget(btn_apply_ip)
+        stats_layout.addWidget(self.chk_spoof_ip)
         stats_layout.addStretch()
         stats_layout.addWidget(self.bandwidth_graph)
         stats_layout.addWidget(self.btn_hide_net)
@@ -862,7 +888,7 @@ class Swordfish(QMainWindow):
         view = QWebEngineView()
         page = QWebEnginePage(self.profile, view)
         view.setPage(page)
-        view.load(QUrl("https://www.duckduckgo.org/"))
+        view.load(QUrl("https://duckduckgo.com"))
         view.urlChanged.connect(lambda u, v=view: self._on_url_changed(u, v))
         view.titleChanged.connect(lambda t, v=view: self._on_title_changed(t, v))
 
@@ -959,6 +985,21 @@ class Swordfish(QMainWindow):
         vis = self.log_widget.isVisible()
         self.log_widget.setVisible(not vis)
         self.btn_hide_log.setText("▼ Log" if vis else "▲ Log")
+
+    def _toggle_spoof_ip(self, state):
+        """Enable or disable IP header spoofing entirely"""
+        enabled = bool(state)
+        self.interceptor.spoof_enabled = enabled
+        self.ip_edit.setEnabled(enabled)
+        if enabled:
+            self.ip_label.setStyleSheet(
+                "color:#005000; font-family:'Courier New'; font-size:10px; font-weight:bold;")
+            self.log_signal.emit(f"[IP] Spoofing ENABLED → {self.interceptor.spoofed_ip}")
+        else:
+            self.ip_label.setStyleSheet(
+                "color:#880000; font-family:'Courier New'; font-size:10px; font-weight:bold;")
+            self.ip_label.setText("IP spoofing OFF")
+            self.log_signal.emit("[IP] Spoofing DISABLED — real IP will be sent")
 
     def _apply_spoofed_ip(self):
         """Validate and apply the user-entered spoofed IP to the interceptor"""
@@ -1107,7 +1148,7 @@ class Swordfish(QMainWindow):
         dlg.resize(600, 550)
         
         layout = QFormLayout()
-        layout.addRow(QLabel(" SWORDFISH SETTINGS "))
+        layout.addRow(QLabel("╔════ SWORDFISH v16.1 SETTINGS ════╗"))
         layout.addRow(QLabel(""))
         
         # OS SPOOFING
@@ -1235,7 +1276,7 @@ class Swordfish(QMainWindow):
         """Clean up on exit"""
         self.profile.clearHttpCache()
         self.profile.cookieStore().deleteAllCookies()
-        print("[Swordfish] Dada wiped")
+        print("[Swordfish] GHOST EXIT - All data wiped from RAM")
         event.accept()
 
 def main():

@@ -1,0 +1,373 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);font-size:14px;color:var(--color-text-primary)}
+h2{font-size:18px;font-weight:500;margin-bottom:1rem;padding:1rem 0 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:1.5rem}
+.card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem;overflow:hidden}
+.card-title{font-size:11px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem}
+.row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:0.5px solid var(--color-border-tertiary);gap:8px;font-size:13px}
+.row:last-child{border-bottom:none}
+.label{color:var(--color-text-secondary);flex-shrink:0;min-width:120px}
+.val{font-family:var(--font-mono);font-size:12px;text-align:right;word-break:break-all;color:var(--color-text-primary)}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;white-space:nowrap}
+.badge-warn{background:#FAEEDA;color:#854F0B}
+.badge-ok{background:#EAF3DE;color:#3B6D11}
+.badge-info{background:#E6F1FB;color:#185FA5}
+.badge-danger{background:#FCEBEB;color:#A32D2D}
+canvas{display:none}
+.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.5rem}
+.metric{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:1rem;text-align:center}
+.metric-num{font-size:26px;font-weight:500;margin-bottom:2px}
+.metric-label{font-size:12px;color:var(--color-text-secondary)}
+.section-header{font-size:16px;font-weight:500;margin:1.5rem 0 .75rem;padding-bottom:.5rem;border-bottom:0.5px solid var(--color-border-tertiary)}
+.hash-vis{display:flex;gap:3px;margin-top:.5rem;flex-wrap:wrap}
+.hash-block{width:14px;height:14px;border-radius:2px;flex-shrink:0}
+#run-btn{padding:8px 20px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:transparent;cursor:pointer;font-size:14px;color:var(--color-text-primary)}
+#run-btn:hover{background:var(--color-background-secondary)}
+.toolbar{display:flex;align-items:center;gap:12px;margin-bottom:1.5rem}
+.ts{font-size:12px;color:var(--color-text-tertiary)}
+</style>
+
+<h2 style="sr-only" aria-label="Browser fingerprint test suite"></h2>
+<div class="toolbar">
+  <button id="run-btn" onclick="runAll()">Re-run all tests</button>
+  <span class="ts" id="ts"></span>
+</div>
+<div class="summary" id="summary"></div>
+<div id="results"></div>
+<canvas id="cv" width="200" height="50"></canvas>
+
+<script>
+const results = {};
+function badge(text, type='info'){return `<span class="badge badge-${type}">${text}</span>`}
+function row(label, val, extra=''){return `<div class="row"><span class="label">${label}</span><span class="val">${extra||val}</span></div>`}
+
+function getNavInfo(){
+  const n = navigator;
+  return {
+    userAgent: n.userAgent,
+    platform: n.platform,
+    language: n.language,
+    languages: (n.languages||[]).join(', '),
+    cookieEnabled: String(n.cookieEnabled),
+    doNotTrack: n.doNotTrack,
+    hardwareConcurrency: String(n.hardwareConcurrency),
+    deviceMemory: n.deviceMemory ? n.deviceMemory+'GB' : 'N/A',
+    maxTouchPoints: String(n.maxTouchPoints),
+    pdfViewerEnabled: String(n.pdfViewerEnabled),
+    webdriver: badge(String(n.webdriver), n.webdriver?'danger':'ok'),
+    onLine: String(n.onLine),
+    vendor: n.vendor||'N/A',
+    product: n.product||'N/A',
+  }
+}
+
+function getScreenInfo(){
+  const s = screen;
+  return {
+    resolution: s.width+'×'+s.height,
+    availSize: s.availWidth+'×'+s.availHeight,
+    colorDepth: s.colorDepth+'bit',
+    pixelDepth: s.pixelDepth+'bit',
+    devicePixelRatio: window.devicePixelRatio,
+    innerSize: window.innerWidth+'×'+window.innerHeight,
+    outerSize: window.outerWidth+'×'+window.outerHeight,
+    orientation: screen.orientation ? screen.orientation.type : 'N/A',
+  }
+}
+
+function getTimingInfo(){
+  const t0 = performance.now();
+  const readings = [];
+  for(let i=0;i<20;i++) readings.push(performance.now()-t0);
+  const diffs = readings.map((r,i)=>i?readings[i]-readings[i-1]:r).filter(d=>d>0);
+  const minGrain = diffs.length ? Math.min(...diffs).toFixed(4)+'ms' : 'N/A';
+  const d0 = Date.now(); let d1=Date.now(); let itr=0;
+  while(d1===d0&&itr<1e6){d1=Date.now();itr++;}
+  return {
+    'performance.now() grain': minGrain,
+    'Date.now() grain': (d1-d0)+'ms',
+    'High-res timer': badge(minGrain, parseFloat(minGrain)<0.01?'ok':'warn'),
+    'perf.getEntries count': performance.getEntries ? performance.getEntries().length : 'N/A',
+    'SharedArrayBuffer': typeof SharedArrayBuffer !== 'undefined' ? badge('available','danger') : badge('blocked','ok'),
+  }
+}
+
+function getCanvasFingerprint(){
+  const cv = document.getElementById('cv');
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle='#f60';ctx.fillRect(0,0,200,50);
+  ctx.fillStyle='#069';ctx.font='18px sans-serif';ctx.fillText('Cwm fjordbank glyphs',2,30);
+  ctx.fillStyle='rgba(102,204,0,.7)';ctx.beginPath();ctx.arc(100,25,20,0,Math.PI*2);ctx.fill();
+  const dataURL = cv.toDataURL();
+  const hash = simpleHash(dataURL);
+  const hex = hash.toString(16).padStart(8,'0');
+  return {
+    fingerprint: hex,
+    length: dataURL.length+' chars',
+    blocks: hex
+  }
+}
+
+function getWebGLInfo(){
+  const cv2 = document.createElement('canvas');
+  const gl = cv2.getContext('webgl')||cv2.getContext('experimental-webgl');
+  if(!gl) return {supported:'No',vendor:'N/A',renderer:'N/A'};
+  const dbgInfo = gl.getExtension('WEBGL_debug_renderer_info');
+  return {
+    supported: badge('Yes','ok'),
+    vendor: dbgInfo ? gl.getParameter(dbgInfo.UNMASKED_VENDOR_WEBGL) : gl.getParameter(gl.VENDOR),
+    renderer: dbgInfo ? gl.getParameter(dbgInfo.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER),
+    shadingLanguage: gl.getParameter(gl.SHADING_LANGUAGE_VERSION),
+    maxTextureSize: gl.getParameter(gl.MAX_TEXTURE_SIZE),
+    maxAnisotropy: (() => {const ext=gl.getExtension('EXT_texture_filter_anisotropic');return ext?gl.getParameter(ext.MAX_TEXTURE_MAX_ANISOTROPY_EXT):'N/A'})(),
+  }
+}
+
+function getAudioFingerprint(){
+  try {
+    const ctx = new (window.AudioContext||window.webkitAudioContext)({sampleRate:44100});
+    const analyser = ctx.createAnalyser();
+    const oscillator = ctx.createOscillator();
+    const dynamics = ctx.createDynamicsCompressor();
+    oscillator.type='triangle';oscillator.frequency.value=10000;
+    oscillator.connect(dynamics);dynamics.connect(analyser);analyser.connect(ctx.destination);
+    oscillator.start(0);
+    const arr = new Float32Array(analyser.frequencyBinCount);
+    analyser.getFloatFrequencyData(arr);
+    const sum = arr.slice(0,20).reduce((a,b)=>a+b,0);
+    oscillator.stop();ctx.close();
+    return {fingerprint: simpleHash(sum.toString()).toString(16), sampleRate: ctx.sampleRate+'Hz', sum: sum.toFixed(4)}
+  } catch(e){
+    return {fingerprint:'blocked/error', error: e.message}
+  }
+}
+
+function getFontsInfo(){
+  const fonts = ['Arial','Helvetica','Times New Roman','Courier New','Verdana','Georgia','Palatino','Garamond','Bookman','Comic Sans MS','Trebuchet MS','Arial Black','Impact','Lucida Console','Tahoma','Geneva','Monaco','Optima','Futura','Gill Sans','Calibri','Cambria','Consolas','Segoe UI','Ubuntu','Roboto','Open Sans','Noto Sans'];
+  const detected = fonts.filter(f=>{
+    try{return document.fonts.check('12px "'+f+'"')}catch(e){return false}
+  });
+  return {
+    'available fonts': detected.length + '/'+fonts.length+' tested',
+    'font list': detected.slice(0,8).join(', ')+(detected.length>8?'…':''),
+    'fingerprint hash': simpleHash(detected.join('')).toString(16)
+  }
+}
+
+function getLocaleInfo(){
+  const d = new Date(2024,0,15,14,30,0);
+  let nf,col,intl_tz;
+  try{nf=new Intl.NumberFormat().format(1234567.89)}catch(e){nf='error'}
+  try{col=new Intl.Collator().resolvedOptions().locale}catch(e){col='error'}
+  try{intl_tz=Intl.DateTimeFormat().resolvedOptions().timeZone}catch(e){intl_tz='error'}
+  return {
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    'DateTimeFormat locale': Intl.DateTimeFormat().resolvedOptions().locale,
+    'NumberFormat sample': nf,
+    'Collator locale': col,
+    'Date.toString()': d.toString().split(' (')[1]||d.toString(),
+  }
+}
+
+function getConnectionInfo(){
+  const n = navigator;
+  const c = n.connection||n.mozConnection||n.webkitConnection;
+  const speechVoices = window.speechSynthesis ? speechSynthesis.getVoices().length : 0;
+  const plugins = [...(navigator.plugins||[])].map(p=>p.name).join(', ')||'none';
+  return {
+    'connection.type': c ? c.type||'N/A' : 'N/A',
+    'connection.effectiveType': c ? c.effectiveType||'N/A' : 'N/A',
+    'connection.downlink': c ? c.downlink||'N/A' : 'N/A',
+    'speech voices': speechVoices+' voices',
+    'plugins count': navigator.plugins ? navigator.plugins.length : 0,
+    'mimeTypes count': navigator.mimeTypes ? navigator.mimeTypes.length : 0,
+    'plugins sample': plugins.slice(0,60)||(plugins||'none'),
+  }
+}
+
+function getMediaQueryInfo(){
+  const tests = [
+    ['prefers-color-scheme: dark','(prefers-color-scheme: dark)'],
+    ['prefers-reduced-motion','(prefers-reduced-motion: reduce)'],
+    ['pointer: fine','(pointer: fine)'],
+    ['hover: hover','(hover: hover)'],
+    ['color-gamut: p3','(color-gamut: p3)'],
+    ['forced-colors','(forced-colors: active)'],
+    ['prefers-contrast','(prefers-contrast: more)'],
+  ];
+  const out = {};
+  tests.forEach(([label,q])=>{
+    out[label] = window.matchMedia(q).matches ? badge('true','info') : 'false';
+  });
+  return out;
+}
+
+function getBatteryInfo(){
+  return navigator.getBattery ? navigator.getBattery().then(b=>({
+    charging: String(b.charging),
+    level: (b.level*100).toFixed(0)+'%',
+    chargingTime: b.chargingTime === Infinity ? 'N/A' : b.chargingTime+'s',
+    dischargingTime: b.dischargingTime === Infinity ? 'N/A' : b.dischargingTime+'s',
+  })) : Promise.resolve({'supported':'No battery API'})
+}
+
+function getPrivacySignals(){
+  return {
+    'doNotTrack': navigator.doNotTrack || 'not set',
+    'globalPrivacyControl': navigator.globalPrivacyControl !== undefined ? String(navigator.globalPrivacyControl) : badge('not set','warn'),
+    'window.opener': window.opener === null ? badge('null (good)','ok') : badge('set (leak)','danger'),
+    'window.name length': window.name.length+' chars',
+    'history.length': history.length,
+    'chrome object': typeof window.chrome !== 'undefined' ? badge('present (fingerprintable)','warn') : badge('absent (good)','ok'),
+    'opr object': typeof window.opr !== 'undefined' ? badge('present','warn') : badge('absent','ok'),
+    'webdriver flag': navigator.webdriver ? badge('true (bot)','danger') : badge('false','ok'),
+  }
+}
+
+function getPermissionsInfo(){
+  const perms = ['geolocation','notifications','camera','microphone','clipboard-read','clipboard-write'];
+  const out = {};
+  if(!navigator.permissions) { out['permissions API'] = 'N/A'; return Promise.resolve(out); }
+  return Promise.all(perms.map(p=>
+    navigator.permissions.query({name:p}).then(r=>{out[p]=badge(r.state, r.state==='denied'?'ok':r.state==='granted'?'danger':'warn')}).catch(()=>{out[p]='error'})
+  )).then(()=>out)
+}
+
+function getWebRTCInfo(){
+  const out = {};
+  if(!window.RTCPeerConnection){out['WebRTC']='Not supported'; return Promise.resolve(out);}
+  const pc = new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
+  pc.createDataChannel('');
+  return pc.createOffer().then(o=>pc.setLocalDescription(o)).then(()=>new Promise(resolve=>{
+    const ips = new Set();
+    pc.onicecandidate = e=>{
+      if(!e.candidate){
+        pc.close();
+        out['local IP candidates'] = ips.size ? [...ips].join(', ') : 'none (good)';
+        out['IP leak risk'] = ips.size ? badge('IPs found','danger') : badge('no leak','ok');
+        resolve(out);
+      } else {
+        const m = e.candidate.candidate.match(/(\d+\.\d+\.\d+\.\d+)/g);
+        if(m) m.forEach(ip=>ips.add(ip));
+      }
+    };
+    setTimeout(()=>{pc.close();out['candidates']='timeout';resolve(out);},3000);
+  }))
+}
+
+function simpleHash(str){
+  let h=0;
+  for(let i=0;i<str.length;i++){h=Math.imul(31,h)+str.charCodeAt(i)|0;}
+  return h>>>0;
+}
+
+function colorFromHex(hex){
+  const colors=['#5B4FF5','#1D9E75','#D85A30','#D4537E','#378ADD','#BA7517','#E24B4A'];
+  return colors[parseInt(hex[0],16)%colors.length];
+}
+
+function renderSection(title, data){
+  const rows = Object.entries(data).map(([k,v])=>row(k,v)).join('');
+  return `<div class="card"><div class="card-title">${title}</div>${rows}</div>`;
+}
+
+function renderCanvasSection(data){
+  const blocks = data.blocks.split('').map(c=>`<div class="hash-block" style="background:${colorFromHex(c)}"></div>`).join('');
+  return `<div class="card"><div class="card-title">Canvas fingerprint</div>
+    ${row('hash',data.fingerprint)}
+    ${row('data length',data.length)}
+    <div class="hash-vis">${blocks}</div>
+    <div style="font-size:11px;color:var(--color-text-secondary);margin-top:6px">Visual hash — color pattern changes if canvas is spoofed</div>
+  </div>`;
+}
+
+async function runAll(){
+  document.getElementById('ts').textContent = 'Running…';
+  document.getElementById('results').innerHTML = '';
+  document.getElementById('summary').innerHTML = '';
+
+  const sections = [];
+
+  const nav = getNavInfo();
+  const screen_ = getScreenInfo();
+  const timing = getTimingInfo();
+  const canvas = getCanvasFingerprint();
+  const webgl = getWebGLInfo();
+  const audio = getAudioFingerprint();
+  const fonts = getFontsInfo();
+  const locale = getLocaleInfo();
+  const conn = getConnectionInfo();
+  const mq = getMediaQueryInfo();
+  const priv = getPrivacySignals();
+
+  let html = '';
+  html += '<div class="section-header">Identity & navigator</div><div class="grid">';
+  html += renderSection('Navigator', nav);
+  html += renderSection('Screen & viewport', screen_);
+  html += '</div>';
+
+  html += '<div class="section-header">Graphics & media</div><div class="grid">';
+  html += renderCanvasSection(canvas);
+  html += renderSection('WebGL', webgl);
+  html += renderSection('Audio fingerprint', audio);
+  html += '</div>';
+
+  html += '<div class="section-header">Timing & side-channel</div><div class="grid">';
+  html += renderSection('Timing precision', timing);
+  html += renderSection('Media queries', mq);
+  html += '</div>';
+
+  html += '<div class="section-header">Locale & fonts</div><div class="grid">';
+  html += renderSection('Locale & date', locale);
+  html += renderSection('Fonts & misc', fonts);
+  html += '</div>';
+
+  html += '<div class="section-header">Network & privacy signals</div><div class="grid">';
+  html += renderSection('Connection', conn);
+  html += renderSection('Privacy signals', priv);
+  html += '</div>';
+
+  document.getElementById('results').innerHTML = html;
+
+  const [battery, perms, webrtc] = await Promise.all([
+    getBatteryInfo(),
+    getPermissionsInfo(),
+    getWebRTCInfo()
+  ]);
+
+  const asyncHtml = '<div class="section-header">Async tests</div><div class="grid">'
+    + renderSection('Battery API', battery)
+    + renderSection('Permissions state', perms)
+    + renderSection('WebRTC IP leak', webrtc)
+    + '</div>';
+
+  document.getElementById('results').innerHTML += asyncHtml;
+
+  const riskyChecks = [
+    !!navigator.webdriver,
+    typeof SharedArrayBuffer !== 'undefined',
+    (window.speechSynthesis && speechSynthesis.getVoices().length > 0),
+    navigator.plugins && navigator.plugins.length > 0,
+    typeof window.chrome !== 'undefined',
+    !navigator.globalPrivacyControl,
+    window.opener !== null,
+    window.name.length > 0,
+  ];
+  const flagged = riskyChecks.filter(Boolean).length;
+  const total = riskyChecks.length;
+  const safe = total - flagged;
+
+  document.getElementById('summary').innerHTML = `
+    <div class="metric"><div class="metric-num" style="color:#639922">${safe}</div><div class="metric-label">clean signals</div></div>
+    <div class="metric"><div class="metric-num" style="color:#BA7517">${flagged}</div><div class="metric-label">flagged signals</div></div>
+    <div class="metric"><div class="metric-num">${canvas.fingerprint.slice(0,6)}</div><div class="metric-label">canvas hash</div></div>
+    <div class="metric"><div class="metric-num">${audio.fingerprint||'err'}</div><div class="metric-label">audio hash</div></div>
+  `;
+
+  document.getElementById('ts').textContent = 'Last run: '+new Date().toLocaleTimeString();
+}
+
+runAll();
+</script>

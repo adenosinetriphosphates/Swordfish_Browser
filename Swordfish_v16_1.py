@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
-"""
-Swordfish v16.1 - FIXED Privacy Browser
-- IP ALWAYS SPOOFED (via headers + JS)
-- OS ALWAYS LINUX (Windows 11 completely hidden)
-- Cookies properly managed and visible
-- Network bandwidth tracking
-- DuckDuckGo integration
-"""
+#Both windows and linux compat
 
 import sys, os, json, random, string, urllib.parse, urllib.request, threading, socket
 from datetime import datetime
@@ -735,7 +728,7 @@ class Swordfish(QMainWindow):
         toolbar_layout.addSpacing(4)
 
         for label, slot in [
-            ("Home",     lambda: self.navigate_to("https://duckduckgo.com")),
+            ("Home",     lambda: self.navigate_to("https://adenosinetriphosphates.github.io/Swordfish_Browser/startpage.html")),
             ("New Tab",  self.new_tab),
             ("Cookies",  self.show_cookies),
             ("Settings", self.show_settings),
@@ -888,7 +881,7 @@ class Swordfish(QMainWindow):
         view = QWebEngineView()
         page = QWebEnginePage(self.profile, view)
         view.setPage(page)
-        view.load(QUrl("https://duckduckgo.com"))
+        view.load(QUrl("https://adenosinetriphosphates.github.io/Swordfish_Browser/startpage.html"))
         view.urlChanged.connect(lambda u, v=view: self._on_url_changed(u, v))
         view.titleChanged.connect(lambda t, v=view: self._on_title_changed(t, v))
 

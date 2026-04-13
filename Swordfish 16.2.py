@@ -1028,7 +1028,7 @@ class Swordfish(QMainWindow):
         self.url_bar.returnPressed.connect(self.navigate); tl.addWidget(self.url_bar,1); tl.addSpacing(4)
         self.btn_iso=QPushButton("⬡ Isolation: OFF"); self.btn_iso.setObjectName("isolbtn_off")
         self.btn_iso.setFixedHeight(26); self.btn_iso.clicked.connect(self._toggle_iso); tl.addWidget(self.btn_iso); tl.addSpacing(4)
-        for lbl,slot in [("Home",lambda:self.navigate_to("https://duckduckgo.com")),
+        for lbl,slot in [("Home",lambda:self.navigate_to("https://adenosinetriphosphates.github.io/Swordfish_Browser/startpage.html")),
                           ("New Tab",self.new_tab),("Cookies",self.show_cookies),
                           ("Trackers",self.show_trackers),("Blocklist",self.show_blocklist),
                           ("DevTools",self._open_devtools),("Settings",self.show_settings)]:
@@ -1078,7 +1078,7 @@ class Swordfish(QMainWindow):
         self.log_signal.emit(f"[ISOLATION] {'ON — new tabs randomised' if on else 'OFF — shared profile'}")
 
     def new_tab(self,url=None):
-        url=url or "https://duckduckgo.com"
+        url=url or "https://adenosinetriphosphates.github.io/Swordfish_Browser/startpage.html"
         iso=self.settings.get("tab_isolation",False)
         if iso:
             fp=FingerprintProfile().randomise(self._iso_rng)

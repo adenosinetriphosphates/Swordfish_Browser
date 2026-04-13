@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Start</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0e0e0f;
+    --surface: rgba(255,255,255,0.04);
+    --surface-hover: rgba(255,255,255,0.07);
+    --border: rgba(255,255,255,0.09);
+    --border-focus: rgba(255,255,255,0.25);
+    --text: #f0ede8;
+    --text-muted: rgba(240,237,232,0.4);
+    --text-dim: rgba(240,237,232,0.22);
+    --accent: #c8b89a;
+    --accent-glow: rgba(200,184,154,0.12);
+    --engine-color: #c8b89a;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 300;
+    overflow: hidden;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    position: relative;
+  }
+
+  /* Subtle grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    background-size: 200px 200px;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.6;
+  }
+
+  /* Radial ambient light */
+  body::after {
+    content: '';
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -60%);
+    width: 700px;
+    height: 500px;
+    background: radial-gradient(ellipse at center, rgba(200,184,154,0.05) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 620px;
+    padding: 0 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    animation: rise 0.8s cubic-bezier(0.16,1,0.3,1) both;
+  }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .time {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(72px, 14vw, 120px);
+    font-weight: 400;
+    letter-spacing: -0.03em;
+    color: var(--text);
+    line-height: 1;
+    margin-bottom: 6px;
+    opacity: 0.92;
+    user-select: none;
+  }
+
+  .date {
+    font-size: 13px;
+    font-weight: 400;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 52px;
+    user-select: none;
+  }
+
+  .search-wrapper {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .search-bar {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 4px 4px 4px 18px;
+    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    gap: 10px;
+  }
+
+  .search-bar:focus-within {
+    border-color: var(--border-focus);
+    background: rgba(255,255,255,0.06);
+    box-shadow: 0 0 0 3px var(--accent-glow), 0 8px 32px rgba(0,0,0,0.3);
+  }
+
+  .search-icon {
+    flex-shrink: 0;
+    opacity: 0.35;
+    transition: opacity 0.2s;
+  }
+
+  .search-bar:focus-within .search-icon { opacity: 0.6; }
+
+  .search-input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 16px;
+    font-weight: 300;
+    color: var(--text);
+    caret-color: var(--accent);
+    padding: 12px 0;
+  }
+
+  .search-input::placeholder { color: var(--text-dim); }
+
+  .engine-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 13px;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: var(--accent);
+    transition: background 0.15s, border-color 0.15s;
+    white-space: nowrap;
+    user-select: none;
+    position: relative;
+  }
+
+  .engine-btn:hover {
+    background: rgba(255,255,255,0.09);
+    border-color: rgba(255,255,255,0.18);
+  }
+
+  .engine-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--engine-color);
+    flex-shrink: 0;
+    transition: background 0.2s;
+  }
+
+  .engine-chevron {
+    opacity: 0.45;
+    transition: transform 0.2s;
+  }
+
+  .engine-btn.open .engine-chevron { transform: rotate(180deg); }
+
+  /* Dropdown */
+  .engine-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: #1a1a1b;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px;
+    padding: 6px;
+    min-width: 170px;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+    z-index: 100;
+    display: none;
+    animation: dropIn 0.15s cubic-bezier(0.16,1,0.3,1) both;
+  }
+
+  @keyframes dropIn {
+    from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .engine-dropdown.open { display: block; }
+
+  .engine-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 400;
+    color: rgba(240,237,232,0.7);
+    transition: background 0.1s, color 0.1s;
+    user-select: none;
+  }
+
+  .engine-option:hover {
+    background: rgba(255,255,255,0.07);
+    color: var(--text);
+  }
+
+  .engine-option.active {
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .engine-option .opt-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: currentColor;
+    opacity: 0.6;
+  }
+
+  .engine-option.active .opt-dot { opacity: 1; }
+
+  .engine-label {
+    display: none;
+  }
+
+  /* Footer hint */
+  .hint {
+    margin-top: 20px;
+    font-size: 12px;
+    color: var(--text-dim);
+    letter-spacing: 0.04em;
+    text-align: center;
+    user-select: none;
+  }
+
+  @media (max-width: 480px) {
+    .time { margin-bottom: 4px; }
+    .date { margin-bottom: 36px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="time" id="clock">00:00</div>
+  <div class="date" id="dateline">Sunday, April 12</div>
+
+  <div class="search-wrapper">
+    <form class="search-bar" id="searchForm" onsubmit="doSearch(event)">
+      <svg class="search-icon" width="17" height="17" viewBox="0 0 17 17" fill="none">
+        <circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M11.5 11.5L15 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+
+      <input class="search-input" id="searchInput" type="text"
+        placeholder="Search or enter address…" autocomplete="off" autocorrect="off"
+        spellcheck="false" autofocus />
+
+      <div class="engine-btn" id="engineBtn" onclick="toggleDropdown(event)">
+        <div class="engine-dot" id="engineDot"></div>
+        <span id="engineLabel">Google</span>
+        <svg class="engine-chevron" width="10" height="6" viewBox="0 0 10 6" fill="none">
+          <path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+
+        <div class="engine-dropdown" id="engineDropdown">
+          <div class="engine-option active" data-engine="google" onclick="selectEngine(this)">
+            <div class="opt-dot"></div> Google
+          </div>
+          <div class="engine-option" data-engine="duckduckgo" onclick="selectEngine(this)">
+            <div class="opt-dot"></div> DuckDuckGo
+          </div>
+          <div class="engine-option" data-engine="startpage" onclick="selectEngine(this)">
+            <div class="opt-dot"></div> Startpage
+          </div>
+          <div class="engine-option" data-engine="ecosia" onclick="selectEngine(this)">
+            <div class="opt-dot"></div> Ecosia
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="hint">↵ &nbsp;search &nbsp;·&nbsp; type a URL to navigate</div>
+</div>
+
+<script>
+  const engines = {
+    google:     { label: 'Google',     url: 'https://www.google.com/search?q=',     color: '#4285f4' },
+    duckduckgo: { label: 'DuckDuckGo', url: 'https://duckduckgo.com/?q=',           color: '#de5833' },
+    startpage:  { label: 'Startpage',  url: 'https://www.startpage.com/search?q=',  color: '#4b9e6a' },
+    ecosia:     { label: 'Ecosia',     url: 'https://www.ecosia.org/search?q=',     color: '#8db33a' },
+  };
+
+  let current = localStorage.getItem('engine') || 'google';
+  applyEngine(current, false);
+
+  function applyEngine(key, save=true) {
+    current = key;
+    if(save) localStorage.setItem('engine', key);
+    const e = engines[key];
+    document.getElementById('engineLabel').textContent = e.label;
+    document.getElementById('engineDot').style.background = e.color;
+    document.documentElement.style.setProperty('--engine-color', e.color);
+    document.documentElement.style.setProperty('--accent', e.color);
+    document.documentElement.style.setProperty('--accent-glow', hexToRgba(e.color, 0.12));
+    document.querySelectorAll('.engine-option').forEach(o => {
+      o.classList.toggle('active', o.dataset.engine === key);
+    });
+  }
+
+  function hexToRgba(hex, a) {
+    const r = parseInt(hex.slice(1,3),16);
+    const g = parseInt(hex.slice(3,5),16);
+    const b = parseInt(hex.slice(5,7),16);
+    return `rgba(${r},${g},${b},${a})`;
+  }
+
+  function selectEngine(el) {
+    applyEngine(el.dataset.engine);
+    closeDropdown();
+    document.getElementById('searchInput').focus();
+  }
+
+  function toggleDropdown(e) {
+    e.preventDefault(); e.stopPropagation();
+    const btn = document.getElementById('engineBtn');
+    const dd  = document.getElementById('engineDropdown');
+    const open = dd.classList.contains('open');
+    if(open) closeDropdown();
+    else {
+      dd.classList.add('open');
+      btn.classList.add('open');
+    }
+  }
+
+  function closeDropdown() {
+    document.getElementById('engineDropdown').classList.remove('open');
+    document.getElementById('engineBtn').classList.remove('open');
+  }
+
+  document.addEventListener('click', e => {
+    if(!document.getElementById('engineBtn').contains(e.target)) closeDropdown();
+  });
+
+  document.addEventListener('keydown', e => {
+    if(e.key === 'Escape') closeDropdown();
+  });
+
+  function doSearch(e) {
+    e.preventDefault();
+    const q = document.getElementById('searchInput').value.trim();
+    if(!q) return;
+    const isURL = /^(https?:\/\/|www\.)/.test(q) || /^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(\/|$)/.test(q);
+    if(isURL) {
+      window.location.href = q.startsWith('http') ? q : 'https://' + q;
+    } else {
+      window.location.href = engines[current].url + encodeURIComponent(q);
+    }
+  }
+
+  /* Clock */
+  function tick() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2,'0');
+    const m = String(now.getMinutes()).padStart(2,'0');
+    document.getElementById('clock').textContent = h + ':' + m;
+    const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    document.getElementById('dateline').textContent =
+      days[now.getDay()] + ', ' + months[now.getMonth()] + ' ' + now.getDate();
+  }
+  tick();
+  setInterval(tick, 1000);
+</script>
+</body>
+</html>
